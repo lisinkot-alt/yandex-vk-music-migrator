@@ -13,10 +13,13 @@ export default function Home() {
   const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
-    fetch("/api/vk/status")
+    const refreshAuth = () => fetch(`/api/vk/status?ts=${Date.now()}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((result: { authenticated?: boolean }) => setConnected(Boolean(result.authenticated)))
       .catch(() => setConnected(false));
+    refreshAuth();
+    window.addEventListener("focus", refreshAuth);
+    return () => window.removeEventListener("focus", refreshAuth);
   }, []);
 
   const startMigration = async () => {
