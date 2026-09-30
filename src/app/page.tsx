@@ -9,7 +9,11 @@ export default function Home() {
   const [connected, setConnected] = useState(false);
   const [importedTracks, setImportedTracks] = useState<ImportedTrack[]>([]);
   const [progress, setProgress] = useState(0);
-  const [notice, setNotice] = useState("Выберите плейлисты, которые хотите перенести");
+  const [notice, setNotice] = useState(() => {
+    if (typeof window === "undefined") return "Выберите плейлисты, которые хотите перенести";
+    const authError = new URLSearchParams(window.location.search).get("reason");
+    return authError ? `VK не завершил вход: ${authError}` : "Выберите плейлисты, которые хотите перенести";
+  });
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 

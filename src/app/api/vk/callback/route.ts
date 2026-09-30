@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   const callbackUrl = new URL(request.url);
   const code = callbackUrl.searchParams.get("code");
   const returnedState = callbackUrl.searchParams.get("state");
+  const deviceId = callbackUrl.searchParams.get("device_id");
   const oauthError = callbackUrl.searchParams.get("error_description") ?? callbackUrl.searchParams.get("error");
   const requestCookies = await cookies();
   const savedState = requestCookies.get("vk_oauth_state")?.value;
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const tokenResponse = await fetch("https://id.vk.com/oauth2/auth", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "authorization_code", code, client_id: appId, client_secret: secret, redirect_uri: redirectUri, code_verifier: codeVerifier }),
+    body: new URLSearchParams({ grant_type: "authorization_code", code, client_id: appId, client_secret: secret, redirect_uri: redirectUri, code_verifier: codeVerifier, ...(deviceId ? { device_id: deviceId } : {}) }),
   });
   const token = await tokenResponse.json() as { access_token?: string; error?: string; error_description?: string };
   if (!tokenResponse.ok || !token.access_token) return fail(token.error_description ?? token.error ?? "VK не выдал токен авторизации");
