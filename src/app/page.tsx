@@ -11,7 +11,7 @@ export default function Home() {
   const [notice, setNotice] = useState("Выберите плейлисты, которые хотите перенести");
   const [importedCount, setImportedCount] = useState<number | null>(null);
 
-  const startMigration = () => {
+  const startMigration = async () => {
     if (!connected) {
       setNotice("Сначала подключите аккаунты в демо-режиме");
       return;
@@ -21,17 +21,20 @@ export default function Home() {
       return;
     }
     setProgress(12);
-    setNotice("Ищем совпадения в каталоге VK Музыки...");
-    const timer = setInterval(() => {
-      setProgress((current) => {
-        if (current >= 100) {
-          clearInterval(timer);
-          setNotice(`Список из ${importedTracks.length} треков подготовлен. Реальное добавление в VK пока недоступно.`);
-          return 100;
-        }
-        return Math.min(current + 22, 100);
-      });
-    }, 650);
+    setNotice("Ищем совпадения и добавляем треки в VK Музыку...");
+    const response = await fetch("/api/vk/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tracks: importedTracks }) });
+    const result = await response.json() as { imported?: ImportedTrack[]; notFound?: ImportedTrack[]; apiError?: string; error?: string };
+    if (!response.ok) {
+      setNotice(result.error ?? "VK не разрешил импорт");
+      setProgress(0);
+      return;
+    }
+    setProgress(100);
+    if (result.apiError) {
+      setNotice(`${result.apiError}. Добавлено: ${result.imported?.length ?? 0}.`);
+      return;
+    }
+    setNotice(`В VK добавлено: ${result.imported?.length ?? 0}. Не найдено: ${result.notFound?.length ?? 0}.`);
   };
 
   const importLibrary = async (files: File[]) => {
