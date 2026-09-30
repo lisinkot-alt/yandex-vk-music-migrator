@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { parseBlob } from "music-metadata";
 
 type ImportedTrack = { artist: string; title: string };
 
@@ -59,17 +60,36 @@ export default function Home() {
   };
 
   const importLibrary = async (files: File[]) => {
-    const body = new FormData();
-    files.forEach((file) => body.append("file", file));
-    const response = await fetch("/api/import", { method: "POST", body });
-    const result = await response.json() as { count?: number; tracks?: ImportedTrack[]; error?: string };
-    if (!response.ok) {
-      setNotice(result.error ?? "Не удалось импортировать список");
+    setNotice(`Читаем ${files.length} ${files.length === 1 ? "файл" : "файла"} локально...`);
+    try {
+      const tracks: ImportedTrack[] = [];
+      for (const file of files) {
+        if (file.name.toLowerCase().endsWith(".mp3")) {
+          const metadata = await parseBlob(file);
+          const artist = metadata.common.artist;
+          const title = metadata.common.title;
+          if (artist && title) {
+            tracks.push({ artist, title });
+            continue;
+          }
+          const [fileArtist, ...fileTitle] = file.name.replace(/\.mp3$/i, "").split(/\s+-\s+/);
+          if (fileArtist && fileTitle.length) tracks.push({ artist: fileArtist.trim(), title: fileTitle.join(" - ").trim() });
+        } else {
+          const body = new FormData();
+          body.append("file", file);
+          const response = await fetch("/api/import", { method: "POST", body });
+          const result = await response.json() as { tracks?: ImportedTrack[]; error?: string };
+          if (!response.ok) throw new Error(result.error ?? "Не удалось импортировать список");
+          tracks.push(...(result.tracks ?? []));
+        }
+      }
+      setImportedTracks(tracks);
+      setImportedCount(tracks.length);
+      setNotice(`Готово: прочитано ${tracks.length} треков. Теперь войдите в VK Музыку.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Не удалось прочитать файлы");
       return;
     }
-    setImportedTracks(result.tracks ?? []);
-    setImportedCount(result.count ?? result.tracks?.length ?? 0);
-    setNotice(`Импортировано ${result.count ?? 0} треков из файла. Теперь войдите в VK Музыку.`);
   };
 
   return (
