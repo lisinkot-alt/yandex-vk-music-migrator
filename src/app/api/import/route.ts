@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseBuffer } from "music-metadata";
 
 type Track = { artist: string; title: string };
 
@@ -32,11 +33,26 @@ function parseTracks(raw: string, fileName: string): Track[] {
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const file = formData.get("file");
-  if (!(file instanceof File)) return NextResponse.json({ error: "Загрузите файл со списком треков" }, { status: 400 });
+  const files = formData.getAll("file").filter((item): item is File => item instanceof File);
+  if (!files.length) return NextResponse.json({ error: "Загрузите MP3-файлы или список треков" }, { status: 400 });
 
   try {
-    const tracks = parseTracks(await file.text(), file.name);
+    const tracks = [] as Track[];
+    for (const file of files) {
+      if (file.name.toLowerCase().endsWith(".mp3")) {
+        const metadata = await parseBuffer(Buffer.from(await file.arrayBuffer()), { mimeType: "audio/mpeg", path: file.name });
+        const artist = metadata.common.artist;
+        const title = metadata.common.title;
+        if (artist && title) {
+          tracks.push({ artist, title });
+          continue;
+        }
+        const [fileArtist, ...fileTitle] = file.name.replace(/\.mp3$/i, "").split(/\s+-\s+/);
+        if (fileArtist && fileTitle.length) tracks.push({ artist: fileArtist.trim(), title: fileTitle.join(" - ").trim() });
+      } else {
+        tracks.push(...parseTracks(await file.text(), file.name));
+      }
+    }
     return NextResponse.json({ tracks, count: tracks.length });
   } catch {
     return NextResponse.json({ error: "Не удалось прочитать файл. Используйте CSV, TXT или JSON." }, { status: 400 });
