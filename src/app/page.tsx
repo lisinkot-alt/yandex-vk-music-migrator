@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseBlob } from "music-metadata";
 
 type ImportedTrack = { artist: string; title: string };
@@ -16,6 +16,20 @@ export default function Home() {
   });
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [playerFile, setPlayerFile] = useState<File | null>(null);
+  const [playerUrl, setPlayerUrl] = useState("");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<HTMLAudioElement>(null);
+  const playerUrlRef = useRef("");
+
+  const togglePlayer = async () => {
+    if (!playerRef.current || !playerUrl) {
+      setNotice("Сначала выберите MP3 для плеера");
+      return;
+    }
+    if (playerRef.current.paused) await playerRef.current.play();
+    else playerRef.current.pause();
+  };
   const [importError, setImportError] = useState(false);
 
   useEffect(() => {
@@ -109,6 +123,7 @@ export default function Home() {
       <section className="library-section"><div className="section-heading compact"><div><p className="eyebrow">ШАГ 02 / ЗАГРУЖЕННАЯ БИБЛИОТЕКА</p><h2>Что переносим?</h2></div><span className="selected-count">{importedTracks.length} треков к импорту</span></div><div className="library-layout"><div className="uploaded-summary"><div className="uploaded-summary-icon">♪</div><strong>{importedTracks.length ? "Файлы готовы" : "Файлы ещё не загружены"}</strong><small>{importedTracks.length ? `${importedTracks.length} MP3 будут подготовлены для VK` : "Загрузите MP3 в блоке выше"}</small><div className="uploaded-status">{importedTracks.length ? "✓ список прочитан" : "○ ожидает загрузки"}</div></div><div className="preview"><div className="preview-top"><span>СПИСОК ТРЕКОВ</span><span className="live-dot">● к импорту: {importedTracks.length}</span></div>{importedTracks.length ? importedTracks.map((track, index) => <div className="song" key={`${track.artist}-${track.title}-${index}`}><span className="song-number">{String(index + 1).padStart(2, "0")}</span><span className={`song-thumb thumb-${index % 3}`} /><span className="song-title"><strong>{track.title}</strong><small>{track.artist}</small></span><span className="song-time">MP3</span></div>) : <div className="empty-tracks">Здесь появится список исполнителей и названий из загруженных MP3.</div>}</div></div></section>
       <section className="migration-bar"><div><p className="eyebrow">ПЕРЕНОС В VK</p><h2>{importError ? "VK заблокировал импорт" : progress === 100 ? "Импорт завершён" : "Добавить треки в VK"}</h2><p className="notice" aria-live="polite">{notice}</p></div><div className="migration-action"><div className="progress-track"><span style={{ width: `${progress}%` }} /></div><button className="primary-button" onClick={startMigration} disabled={isImporting || !importedTracks.length}>{isImporting ? "Обрабатываем..." : progress === 100 || importError ? "Повторить импорт" : "Запустить импорт"} <span>→</span></button></div></section>
       <footer><span>перенос · 2026</span><span>Сделано для тех, кто любит музыку</span><span>Данные защищены</span></footer>
+      <section className={`bottom-player ${isPlaying ? "playing" : ""}`} aria-label="Аудиоплеер"><input className="player-file" type="file" accept="audio/mpeg,.mp3" onChange={(event) => { const file = event.target.files?.[0]; if (file) { if (playerUrlRef.current) URL.revokeObjectURL(playerUrlRef.current); const url = URL.createObjectURL(file); playerUrlRef.current = url; setPlayerUrl(url); setPlayerFile(file); setIsPlaying(false); } }} /><button className="player-upload" aria-label="Выбрать трек">＋</button><button className="player-play" onClick={togglePlayer} aria-label={isPlaying ? "Пауза" : "Воспроизвести"}>{isPlaying ? "Ⅱ" : "▶"}</button><div className="player-meta"><span className="player-kicker">СЕЙЧАС ИГРАЕТ</span><strong>Главный хит Константина Лисина</strong><small>{playerFile?.name ?? "Выберите MP3, чтобы включить трек"}</small></div><div className="equalizer" aria-hidden="true">{[18, 29, 12, 35, 23, 41, 27, 16, 33, 21, 38, 25, 15, 31, 20, 36].map((height, index) => <i key={index} style={{ height: `${height}px`, animationDelay: `${index * 55}ms` }} />)}</div><audio ref={playerRef} src={playerUrl} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnded={() => setIsPlaying(false)} /></section>
     </main>
   );
 }
